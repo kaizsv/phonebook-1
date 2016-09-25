@@ -2,6 +2,7 @@
 #define _PHONEBOOK_H
 
 #define MAX_LAST_NAME_SIZE 16
+#define SMAZ_LAST_NAME_SCALE (1.0f / 2.0f)
 
 /* TODO: After modifying the original version, uncomment the following
  * line to set OPT properly */
@@ -20,7 +21,7 @@ typedef struct __PHONE_BOOK_DETAIL {
 } detail;
 
 typedef struct __PHONE_BOOK_ENTRY {
-    char lastName[MAX_LAST_NAME_SIZE];
+    char lastName[8];
     detail *pDetail;
     struct __PHONE_BOOK_ENTRY *pNext;
 } entry;

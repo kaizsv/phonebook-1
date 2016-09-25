@@ -6,7 +6,7 @@ CFLAGS_opt  = -O0
 EXEC = phonebook_orig phonebook_opt
 all: $(EXEC)
 
-SRCS_common = main.c
+SRCS_common = main.c smaz.c
 
 phonebook_orig: $(SRCS_common) phonebook_orig.c phonebook_orig.h
 	$(CC) $(CFLAGS_common) $(CFLAGS_orig) \

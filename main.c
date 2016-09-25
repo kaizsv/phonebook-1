@@ -4,6 +4,8 @@
 #include <time.h>
 #include <assert.h>
 
+#include "smaz.h"
+
 #include IMPL
 
 #define DICT_FILE "./dictionary/words.txt"
@@ -51,8 +53,16 @@ int main(int argc, char *argv[])
         while (line[i] != '\0')
             i++;
         line[i - 1] = '\0';
+#if defined(OPT)
+        int smaz_size = (float) (i-1) * SMAZ_LAST_NAME_SCALE + 0.5f;
+        char smaz_line[smaz_size];
+        smaz_compress(line, i - 1, smaz_line, smaz_size);
+#else
+        char smaz_line[MAX_LAST_NAME_SIZE];
+        strcpy(smaz_line, line);
+#endif
         i = 0;
-        e = append(line, e);
+        e = append(smaz_line, e);
     }
     clock_gettime(CLOCK_REALTIME, &end);
     cpu_time1 = diff_in_second(start, end);
@@ -64,18 +74,29 @@ int main(int argc, char *argv[])
 
     /* the givn last name to find */
     char input[MAX_LAST_NAME_SIZE] = "zyxel";
+#if defined(OPT)
+    while (input[i] != '\0')
+        i++;
+    int smaz_input_size = (float) i * SMAZ_LAST_NAME_SCALE + 0.5f;
+    char smaz_input[smaz_input_size];
+    smaz_compress(input, i, smaz_input, smaz_input_size);
+    i = 0;
+#else
+    char smaz_input[MAX_LAST_NAME_SIZE] = "zyxel";
+#endif
+
     e = pHead;
 
-    assert(findName(input, e) &&
+    assert(findName(smaz_input, e) &&
            "Did you implement findName() in " IMPL "?");
-    assert(0 == strcmp(findName(input, e)->lastName, "zyxel"));
+    assert(0 == strcmp(findName(smaz_input, e)->lastName, smaz_input));
 
 #if defined(__GNUC__)
     __builtin___clear_cache((char *) pHead, (char *) pHead + sizeof(entry));
 #endif
     /* compute the execution time */
     clock_gettime(CLOCK_REALTIME, &start);
-    findName(input, e);
+    findName(smaz_input, e);
     clock_gettime(CLOCK_REALTIME, &end);
     cpu_time2 = diff_in_second(start, end);
 
