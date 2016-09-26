@@ -3,10 +3,35 @@
 #include <string.h>
 #include <time.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include IMPL
 
 #define DICT_FILE "./dictionary/words.txt"
+#define NUM_OF_THREADS 5
+
+FILE *fp;
+char *not_read_end = "";
+
+struct thread_data {
+    entry *pHead;
+    entry *e;
+};
+
+pthread_mutex_t current_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t finish_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t finish_cond = PTHREAD_COND_INITIALIZER;
+int finished;
+
+entry *creat_entry()
+{
+    entry *e;
+    e = (entry *) malloc(sizeof(entry));
+    e->pNext = NULL;
+
+    return e;
+}
 
 static double diff_in_second(struct timespec t1, struct timespec t2)
 {
@@ -21,9 +46,39 @@ static double diff_in_second(struct timespec t1, struct timespec t2)
     return (diff.tv_sec + diff.tv_nsec / 1000000000.0);
 }
 
+void *read_line(void *args)
+{
+    int i = 0;
+    char line[MAX_LAST_NAME_SIZE];
+
+    struct thread_data *data = (struct thread_data *) args;
+
+    while (1) {
+        pthread_mutex_lock(&current_mutex);
+        not_read_end = fgets(line, sizeof(line), fp);
+        pthread_mutex_unlock(&current_mutex);
+
+        if (not_read_end == NULL)
+            break;
+
+        while (line[i] != '\0')
+            i++;
+        line[i - 1] = '\0';
+        i = 0;
+
+        data->e = append(line, data->e);
+    }
+
+    pthread_mutex_lock(&finish_mutex);
+    finished++;
+    pthread_cond_signal(&finish_cond);
+    pthread_mutex_unlock(&finish_mutex);
+
+    pthread_exit(NULL);
+}
+
 int main(int argc, char *argv[])
 {
-    FILE *fp;
     int i = 0;
     char line[MAX_LAST_NAME_SIZE];
     struct timespec start, end;
@@ -47,6 +102,37 @@ int main(int argc, char *argv[])
     __builtin___clear_cache((char *) pHead, (char *) pHead + sizeof(entry));
 #endif
     clock_gettime(CLOCK_REALTIME, &start);
+
+    /* starting to append */
+#if defined(OPT)
+    finished = 0;
+    pthread_t threads[NUM_OF_THREADS];
+    struct thread_data thread_data[NUM_OF_THREADS];
+
+    for (i = 0; i < NUM_OF_THREADS; i++) {
+        thread_data[i].pHead = creat_entry();
+        thread_data[i].e = thread_data[i].pHead;
+
+        pthread_create(&threads[i], NULL, read_line, (void *)&thread_data[i]);
+    }
+
+    while (not_read_end) {
+        pthread_mutex_lock(&finish_mutex);
+        while (finished < NUM_OF_THREADS) {
+            pthread_cond_wait(&finish_cond, &finish_mutex);
+        }
+        pthread_mutex_unlock(&finish_mutex);
+    }
+
+    for (i = 0; i < NUM_OF_THREADS; i++) {
+        pthread_cancel(threads[i]);
+    }
+
+    for (i = 0; i < NUM_OF_THREADS - 1; i++) {
+        thread_data[i].e->pNext = thread_data[i + 1].pHead;
+    }
+    pHead = thread_data[0].pHead;
+#else
     while (fgets(line, sizeof(line), fp)) {
         while (line[i] != '\0')
             i++;
@@ -54,6 +140,8 @@ int main(int argc, char *argv[])
         i = 0;
         e = append(line, e);
     }
+#endif
+
     clock_gettime(CLOCK_REALTIME, &end);
     cpu_time1 = diff_in_second(start, end);
 
